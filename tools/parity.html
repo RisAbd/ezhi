@@ -10,8 +10,9 @@
   try {
     const py = await (await fetch("../docs/data/catalog.json")).json();
     const js = await EZ.crawl(null, async (topic, st) => {
-      const r = await fetch(`../cache/${topic}_${st}.html`);
-      if (!r.ok) throw new Error(`нет ../cache/${topic}_${st}.html`);
+      const dir = location.hash === "#mobile" ? "cache_mobile" : "cache";   // #mobile — мобильная версия форума
+      const r = await fetch(`../${dir}/${topic}_${st}.html`);
+      if (!r.ok) throw new Error(`нет ../${dir}/${topic}_${st}.html`);
       return r.text();
     });
     const pm = new Map(py.items.map((i) => [i.id, i])), jm = new Map(js.items.map((i) => [i.id, i]));

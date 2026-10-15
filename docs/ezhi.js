@@ -74,7 +74,27 @@ const EZ = (() => {
 
   const pageUrl = (topic, st) => `${BASE}?showtopic=${topic}` + (st ? `&st=${st}` : "");
 
+  // Мобильный браузер форум кормит мобильной версией (по User-Agent, из fetch его не сменить):
+  // посты там в <div class='topic_reply' id='entryN'>, текст поста тот же, что в полной версии.
+  function splitPostsMobile(page) {
+    const out = [], re = /<div class='topic_reply[^']*' id='entry(\d+)'>/g;
+    let m;
+    while ((m = re.exec(page))) {
+      const start = m.index + m[0].length;
+      const nxt = page.indexOf("<div class='topic_reply", start);
+      const block = page.slice(start, nxt !== -1 ? nxt : page.length);
+      const author = block.match(/showuser=(\d+)/);
+      const date = block.match(/<span class='subtext'>([^<]+)/);
+      const b = block.match(/<div id="post-\d+" class='post[^']*'>/);
+      let body = b ? block.slice(b.index + b[0].length) : "";
+      body = body.split(/<div id="post-\d+-controls"/)[0];
+      out.push([m[1], author ? author[1] : "", date ? date[1].trim() : "", body]);
+    }
+    return out;
+  }
+
   function splitPosts(page) {                      // [(post_id, author_id, date, body_html)]
+    if (!page.includes("<div class='post_block") && page.includes("<div class='topic_reply")) return splitPostsMobile(page);
     const out = [], re = /<div class='post_block[^']*' id='post_id_(\d+)'>/g;
     let m;
     while ((m = re.exec(page))) {
