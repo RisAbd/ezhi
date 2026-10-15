@@ -1,0 +1,20 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Живая проверка: браузер качает форум сам</title>
+<script src="../docs/ezhi.js"></script>
+<script>
+(async () => {
+  const log = (...a) => console.log("LIVE", ...a);
+  try {
+    let t = performance.now();
+    const page = await EZ.getPage("293246934", 0, true);
+    log("страница темы:", page.length, "знаков, постов", EZ.splitPosts(page).length, Math.round(performance.now() - t), "мс");
+    t = performance.now();
+    const cat = await EZ.refresh((n) => log("страниц", n));
+    log("обход:", cat.topics.length, "тем,", cat.items.length, "товаров за", Math.round(performance.now() - t), "мс");
+    const again = await EZ.cacheGet("catalog");
+    log("в кеше браузера:", again ? JSON.parse(again.text).items.length : "нет");
+  } catch (e) { log("ОШИБКА", e.message || e); }
+  log("ГОТОВО");
+})();
+</script>

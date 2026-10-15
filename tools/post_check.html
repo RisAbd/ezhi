@@ -1,0 +1,16 @@
+<!doctype html>
+<meta charset="utf-8">
+<iframe id="f" width="1000" height="800"></iframe>
+<script>
+// открыть копию поста и через 8 с посмотреть, что в ней: заметка, длина поста, подсвеченная строка
+const id = location.hash.slice(1);
+const f = document.getElementById("f");
+f.src = "../docs/post.html#id=" + id;
+setTimeout(() => {
+  const d = f.contentDocument;
+  console.log("POST", JSON.stringify({ note: d.getElementById("note").hidden ? "(скрыта — строка найдена)" : d.getElementById("note").textContent,
+    postLen: d.getElementById("post").textContent.length, imgs: d.querySelectorAll("#post img").length,
+    hit: [...d.querySelectorAll("mark.hit")].map((m) => m.textContent).join(" | "),
+    forum: d.getElementById("forum").href }));
+}, 8000);
+</script>

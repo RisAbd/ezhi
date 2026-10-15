@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Пост продавца</title>
+<style>
+/* Layout: sticky bar with back / forum links, the seller's post below with the item highlighted */
+:root {
+  --bg: #eef0ec; --surface: #ffffff; --fg: #1d2420; --muted: #5d6862; --line: #dde1dc;
+  --accent: #1f6b4b; --mark: #fbe7a8;
+  --sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #121614; --surface: #1c221f; --fg: #e5eae6; --muted: #9aa69f; --line: #2c3430; --accent: #4fae83; --mark: #6b561a; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #121614; --surface: #1c221f; --fg: #e5eae6; --muted: #9aa69f; --line: #2c3430; --accent: #4fae83; --mark: #6b561a; color-scheme: dark; }
+* { box-sizing: border-box; }
+html, body { margin: 0; overflow-x: clip; }   /* clip, а не hidden: hidden ломает закреплённую шапку */
+body { background: var(--bg); color: var(--fg); font: 14px/1.45 var(--sans); padding-top: 42px; }
+.top { position: fixed; top: 0; left: 0; right: 0; height: 42px; z-index: 2; display: flex; gap: 10px; align-items: center; padding: 8px 12px; background: var(--bg); border-bottom: 1px solid var(--line); }
+.top a { color: var(--accent); white-space: nowrap; text-decoration: none; font-weight: 500; }
+.top .t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); font-size: 13px; }
+.note { padding: 6px 12px; font-size: 13px; color: var(--muted); }
+.post { margin: 0 8px 40px; padding: 10px 12px; background: var(--surface); border-radius: 6px; overflow-wrap: anywhere; }
+.post img { max-width: 100%; height: auto; vertical-align: middle; }
+.post * { max-width: 100%; box-sizing: border-box; }
+.post table { display: block; overflow-x: auto; }
+.post a { color: var(--accent); }
+.post strike { color: var(--muted); }
+.post .bbc_spoiler_content { display: block !important; }
+mark.hit { background: var(--mark); color: inherit; outline: 2px solid var(--accent); outline-offset: 1px; border-radius: 2px; }
+</style>
+</head>
+<body>
+<div class="top">
+  <a href="./" id="back">← каталог</a>
+  <span class="t" id="title">…</span>
+  <a href="https://diesel.elcat.kg/" target="_blank" rel="noopener" id="forum">на форуме</a>
+</div>
+<div class="note" id="note">Загружаю пост…</div>
+<div class="note">Это копия поста с форума: страница берётся из кеша браузера, а если её там нет — прямо с форума. Ссылка «на форуме» пробует открыть сам форум сразу на этой строке.</div>
+<div class="post" id="post"></div>
+<script src="ezhi.js"></script>
+<script>
+document.getElementById("back").onclick = (e) => { if (history.length > 1) { e.preventDefault(); history.back(); } };
+
+// пост с форума вставляем без скриптов и обработчиков; относительные ссылки — на форум
+function sanitize(html) {
+  const doc = new DOMParser().parseFromString(`<div>${html}</div>`, "text/html");
+  const root = doc.body.firstElementChild;
+  root.querySelectorAll("script,style,iframe,object,embed,link,meta,form,base").forEach((e) => e.remove());
+  for (const el of root.querySelectorAll("*")) {
+    for (const a of [...el.attributes]) {
+      if (/^on/i.test(a.name)) el.removeAttribute(a.name);
+      else if (/^(href|src|action|xlink:href)$/i.test(a.name)) {
+        if (/^\s*javascript:/i.test(a.value)) el.removeAttribute(a.name);
+        else try { el.setAttribute(a.name, new URL(a.value.trim(), EZ.BASE).href); } catch {}
+      }
+    }
+    if (el.tagName === "A") { el.target = "_blank"; el.rel = "noopener"; }
+  }
+  return root.innerHTML;
+}
+
+(async () => {
+  const note = document.getElementById("note");
+  const id = new URLSearchParams(location.hash.slice(1)).get("id");
+  try {
+    const cat = await EZ.loadCatalog();
+    const it = cat?.items.find((x) => x.id === id);
+    if (!it) { note.textContent = "Этого товара нет в каталоге."; return; }
+    const topic = cat.topics[it.t];
+    document.title = it.n + " · у продавца";
+    document.getElementById("title").textContent = it.n;
+    document.getElementById("forum").href = EZ.pageUrl(topic.topic, it.st) + `&view=findpost&p=${it.pi}`;
+    const page = await EZ.getPage(topic.topic, it.st, false);
+    const post = EZ.splitPosts(page).find((p) => p[0] === it.pi);
+    if (!post) { note.textContent = "Пост не нашёлся на странице форума — откройте «на форуме»."; return; }
+    document.getElementById("post").innerHTML = sanitize(post[3]);
+    highlight({ group: it.g, line: it.l });
+  } catch (e) { note.textContent = "Не удалось загрузить пост: " + (e.message || e); }
+})();
+
+function highlight(want) {
+  // текст поста как одна строка без лишних пробелов + для каждого символа — из какого он узла
+  const post = document.getElementById("post");
+  const nodes = [], map = [];
+  let text = "";
+  const push = (c, ni) => {
+    c = c === " " ? " " : c.toLowerCase().replace("ё", "е");
+    if (/\s/.test(c)) { if (!text || text.endsWith(" ")) return; c = " "; }
+    text += c; map.push(ni);
+  };
+  const walker = document.createTreeWalker(post, NodeFilter.SHOW_TEXT);
+  while (walker.nextNode()) {
+    const n = walker.currentNode, ni = nodes.push(n) - 1;
+    for (const c of n.nodeValue) push(c, ni);
+    if (/^(BR|DIV|P|LI)$/.test(n.nextSibling?.nodeName || "")) push(" ", ni);
+  }
+  const norm = (s) => (s || "").replace(/\s*<<[^>]+>>/g, "").replace(/ /g, " ").toLowerCase().replace(/ё/g, "е").replace(/\s+/g, " ").trim();
+
+  function locate() {
+    const line = norm(want.line), group = norm(want.group);
+    let from = 0;
+    if (group) { const g = text.indexOf(group); if (g >= 0) from = g; }
+    let i = text.indexOf(line, from);
+    if (i < 0) i = text.indexOf(line);
+    if (i < 0 && group) return [text.indexOf(group), group.length];
+    return [i, line.length];
+  }
+
+  const [at, len] = locate();
+  const note = document.getElementById("note");
+  if (at < 0) {
+    note.textContent = "Не нашёл строку товара в посте — показываю пост целиком.";
+  } else {
+    note.hidden = true;
+    const hit = [...new Set(map.slice(at, at + len))];
+    let first = null;
+    for (const ni of hit) {
+      const n = nodes[ni];
+      if (!n.nodeValue.trim()) continue;
+      const m = document.createElement("mark");
+      m.className = "hit";
+      n.replaceWith(m);
+      m.appendChild(n);
+      first ||= m;
+    }
+    // ссылка на форум прямо к строке: text fragment из текста, каким его показывает браузер
+    const words = (t, n, fromEnd) => { const w = t.replace(/\s+/g, " ").trim().split(" "); return (fromEnd ? w.slice(-n) : w.slice(0, n)).join(" "); };
+    const enc = (t) => encodeURIComponent(t).replace(/-/g, "%2D");
+    const lineText = hit.map((ni) => nodes[ni].nodeValue).join(" ");
+    let frag = enc(words(lineText, 6));
+    if (want.group) {
+      const g = text.indexOf(norm(want.group));
+      if (g >= 0 && g < at) frag = enc(words(nodes[map[g]].nodeValue, 5)) + "," + enc(words(lineText, 4, true));
+    }
+    const fl = document.getElementById("forum");
+    fl.href = fl.getAttribute("href").replace(/&view=findpost&p=\d+/, "").replace(/#.*$/, "") + "#:~:text=" + frag;
+    const go = () => first?.scrollIntoView({ block: "center", inline: "nearest" });
+    go();
+    // фото выше строки догружаются и сдвигают её — держим строку по центру, пока всё не загрузится
+    let moved = false;
+    for (const im of post.querySelectorAll("img")) if (!im.complete) im.addEventListener("load", () => { if (!moved) go(); }, { once: true });
+    window.addEventListener("load", () => { if (!moved) go(); });
+    ["wheel", "touchstart", "keydown"].forEach((ev) => window.addEventListener(ev, () => (moved = true), { once: true, passive: true }));
+  }
+}
+</script>
+</body>
+</html>

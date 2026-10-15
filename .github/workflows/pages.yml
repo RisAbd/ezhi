@@ -1,0 +1,49 @@
+# Сайт на GitHub Pages: свежий снимок каталога с форума каждые 3 часа + выкладка docs/.
+# Снимок только ускоряет первый показ: страница и сама докачивает форум, если снимок старше 3 часов.
+name: Сайт
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "17 */3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Снимок каталога с форума
+        run: python3 ezhi_catalog.py snapshot --refresh || echo "форум не ответил — остаётся снимок из репозитория"
+      - name: Не дать GitHub выключить расписание (он гасит его после 60 дней без коммитов)
+        run: |
+          if [ $(( $(date +%s) - $(git log -1 --format=%ct) )) -gt $(( 50 * 86400 )) ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git commit --allow-empty -m "Продлить расписание обновления каталога"
+            git push
+          fi
+      - uses: actions/configure-pages@v6
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: docs
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v5

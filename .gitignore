@@ -1,0 +1,6 @@
+cache/
+images/
+__pycache__/
+/catalog.json
+/catalog.csv
+/catalog.md

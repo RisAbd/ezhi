@@ -1,0 +1,575 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Склад Ezhi</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: sticky search bar, dense grid (or list) of parts, cart as side panel / bottom sheet */
+:root {
+  --bg: #eef0ec; --surface: #ffffff; --fg: #1d2420; --muted: #5d6862; --line: #dde1dc;
+  --accent: #1f6b4b; --accent-fg: #ffffff; --accent-soft: #e2efe8; --price: #8a4b08; --mark: #fbe7a8;
+  --danger: #a3322a;
+  --sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #121614; --surface: #1c221f; --fg: #e5eae6; --muted: #9aa69f; --line: #2c3430;
+  --accent: #4fae83; --accent-fg: #0f1512; --accent-soft: #23372d; --price: #e3a55a; --mark: #5b4a17;
+  --danger: #e0766d; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #121614; --surface: #1c221f; --fg: #e5eae6; --muted: #9aa69f; --line: #2c3430;
+  --accent: #4fae83; --accent-fg: #0f1512; --accent-soft: #23372d; --price: #e3a55a; --mark: #5b4a17;
+  --danger: #e0766d; color-scheme: dark; }
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { margin: 0; }
+body { background: var(--bg); color: var(--fg); font: 14px/1.35 var(--sans); }
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.wrap { padding-inline: 12px; max-width: 1400px; margin: 0 auto; }
+svg.i { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: 0 0 auto; }
+
+/* шапка */
+header.top { position: sticky; top: 0; z-index: 5; background: var(--bg); border-bottom: 1px solid var(--line); }
+.bar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding-block: 8px; }
+.brand { font-weight: 600; font-size: 16px; white-space: nowrap; }
+#q { flex: 1 1 260px; min-width: 0; padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); }
+select { padding: 7px 6px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); max-width: 100%; }
+.btn { padding: 7px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; }
+.btn.primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); font-weight: 500; }
+.ic { display: inline-grid; place-items: center; width: 34px; height: 34px; padding: 0; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--fg); flex: 0 0 auto; }
+.ic.danger { color: var(--danger); }
+.ic.armed { background: var(--danger); color: var(--surface); border-color: var(--danger); }
+.ic.has { border-color: var(--accent); color: var(--accent); }
+.cartbtn b { font: 600 12px var(--mono); background: var(--accent-fg); color: var(--accent); border-radius: 10px; padding: 0 6px; }
+
+/* строка статуса */
+.status { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; padding-block: 8px 6px; font: 12px var(--mono); color: var(--muted); }
+.status button { font: inherit; background: none; border: 0; padding: 0; color: var(--accent); text-decoration: underline; }
+.status label { display: inline-flex; align-items: center; gap: 4px; font-family: var(--sans); color: var(--fg); }
+
+main { padding-block: 0 80px; }
+
+/* плитка */
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 6px; }
+.card { background: var(--surface); border-radius: 6px; display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
+.card .ph { aspect-ratio: 4 / 3; background: #fff; display: grid; place-items: center; cursor: zoom-in; }
+.card .ph img { width: 100%; height: 100%; object-fit: contain; }
+.strip { display: flex; gap: 2px; overflow-x: auto; padding: 2px; background: var(--surface); scrollbar-width: none; }
+.strip::-webkit-scrollbar { display: none; }
+.strip img { flex: 0 0 30px; width: 30px; height: 30px; object-fit: cover; border-radius: 3px; opacity: .6; cursor: pointer; background: #fff; }
+.strip img.on { opacity: 1; outline: 2px solid var(--accent); outline-offset: -2px; }
+.card .body { padding: 5px 7px 6px; display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 0; }
+.name { font-weight: 500; overflow-wrap: anywhere; cursor: pointer; line-height: 1.25; }
+.name .v { font-weight: 600; }
+.name .g { display: block; font-weight: 400; font-size: 12px; color: var(--muted); }
+.det { color: var(--muted); font-size: 12px; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.xs { font-size: 11px; color: var(--danger); overflow-wrap: anywhere; }
+.row { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-top: auto; padding-top: 2px; }
+.price { font: 500 14px var(--mono); color: var(--price); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.price s, .price .alt { color: var(--muted); font-size: 12px; }
+mark { background: var(--mark); color: inherit; border-radius: 2px; }
+.add { display: inline-grid; place-items: center; width: 34px; height: 28px; padding: 0; border: 0; border-radius: 6px; background: var(--accent); color: var(--accent-fg); flex: 0 0 auto; }
+.add svg.i { width: 17px; height: 17px; }
+.qty { display: inline-flex; align-items: center; border-radius: 6px; overflow: hidden; background: var(--accent-soft); flex: 0 0 auto; }
+.qty button { border: 0; background: transparent; width: 26px; height: 28px; font-weight: 600; color: var(--accent); }
+.qty span { min-width: 20px; text-align: center; font: 500 13px var(--mono); }
+.card.out { opacity: .55; }
+.oos { font: 500 10px var(--mono); text-transform: uppercase; letter-spacing: .04em; color: var(--danger); }
+.more { display: flex; justify-content: center; margin-top: 12px; min-height: 1px; }
+.empty { padding: 32px 0; color: var(--muted); text-align: center; }
+
+/* список */
+.grid.list { display: flex; flex-direction: column; gap: 1px; background: var(--line); border-radius: 6px; overflow: hidden; }
+.grid.list .card { flex-direction: row; border-radius: 0; }
+.grid.list .card .ph { flex: 0 0 64px; width: 64px; height: 64px; aspect-ratio: auto; align-self: flex-start; }
+.grid.list .strip { display: none; }
+.grid.list .card .body { padding: 4px 8px; gap: 1px; }
+.grid.list .det { -webkit-line-clamp: 1; }
+
+/* корзина */
+aside { position: fixed; z-index: 20; top: 0; right: 0; bottom: 0; width: min(420px, 100%); background: var(--surface); border-left: 1px solid var(--line); display: flex; flex-direction: column; box-shadow: -8px 0 24px rgb(0 0 0 / .12); }
+.ch { display: flex; gap: 4px; align-items: center; padding: 8px 10px 6px; }
+.ch select { flex: 1; min-width: 0; }
+#cartName { margin: 0 10px 6px; width: calc(100% - 20px); padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); font-weight: 500; }
+.lines { flex: 1; overflow-y: auto; padding: 0 10px; display: flex; flex-direction: column; border-top: 1px solid var(--line); }
+.line { display: grid; grid-template-columns: 36px minmax(0, 1fr) auto; gap: 6px; align-items: center; padding-block: 4px; border-bottom: 1px solid var(--line); }
+.line img { width: 36px; height: 36px; object-fit: contain; background: #fff; border-radius: 3px; }
+.line .nm { font-size: 12.5px; line-height: 1.25; overflow-wrap: anywhere; min-width: 0; cursor: pointer; }
+.line .nm em { color: var(--danger); font-style: normal; font-size: 11px; display: block; }
+.line img { cursor: pointer; }
+.src { display: inline-flex; align-items: center; gap: 2px; font-size: 11px; color: var(--accent); text-decoration: none; white-space: nowrap; }
+.src svg.i { width: 12px; height: 12px; }
+.line .rt { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+.line .rb { display: flex; align-items: baseline; gap: 8px; }
+.line .sum { font: 500 12px var(--mono); color: var(--price); font-variant-numeric: tabular-nums; }
+aside footer { border-top: 1px solid var(--line); padding: 6px 10px calc(6px + env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; gap: 5px; }
+.total { display: flex; justify-content: space-between; align-items: baseline; font-weight: 600; }
+.total span:last-child { font-family: var(--mono); color: var(--price); font-size: 15px; }
+#note { width: 100%; min-height: 44px; padding: 5px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); resize: vertical; font-size: 13px; }
+.acts { display: flex; gap: 4px; align-items: center; }
+.acts #copyText { margin-left: auto; }
+.toast { font-size: 12px; color: var(--accent); min-height: 1em; }
+.shade { position: fixed; inset: 0; z-index: 15; background: rgb(0 0 0 / .35); }
+
+/* карточка товара */
+dialog { border: 0; border-radius: 10px; padding: 0; width: min(760px, calc(100% - 24px)); max-height: calc(100% - 24px); background: var(--surface); color: var(--fg); }
+dialog::backdrop { background: rgb(0 0 0 / .5); }
+.dlg { padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+.dlg h2 { margin: 0; font-size: 17px; font-weight: 600; text-wrap: balance; overflow-wrap: anywhere; }
+.dlg .big { width: 100%; max-height: 50vh; object-fit: contain; background: #fff; border-radius: 6px; }
+.dlg .strip img { flex-basis: 48px; width: 48px; height: 48px; }
+.dlg ul { margin: 0; padding-left: 18px; color: var(--muted); }
+.dlg a { color: var(--accent); }
+.dlg .acts { justify-content: space-between; }
+.dlg .links { display: flex; flex-wrap: wrap; gap: 4px 16px; }
+.dlg .src { font-size: 14px; }
+.dlg .src svg.i { width: 15px; height: 15px; }
+
+@media (max-width: 640px) {
+  .wrap { padding-inline: 8px; }
+  .brand { display: none; }
+  #q { flex-basis: 100%; }
+  #topic, #sort { flex: 1 1 30%; min-width: 0; font-size: 13px; }
+  #view { font-size: 13px; padding: 7px 8px; }
+  #openCart { position: fixed; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); z-index: 12; padding: 10px 14px; box-shadow: 0 4px 14px rgb(0 0 0 / .25); }
+  .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px; }
+  .grid:not(.list) .det { display: none; }
+  .card .ph { aspect-ratio: 16 / 11; }
+  .name { font-size: 13px; }
+  aside { top: auto; height: 80%; width: 100%; border-left: 0; border-top: 1px solid var(--line); border-radius: 12px 12px 0 0; }
+}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-cartplus" viewBox="0 0 24 24"><path d="M3 4h2l2.4 11h10.2L20 8H8"/><circle cx="9" cy="19.5" r="1.4"/><circle cx="17" cy="19.5" r="1.4"/><path d="M13 5v6M10 8h6"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-edit" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13 7l4 4"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></symbol>
+  <symbol id="i-note" viewBox="0 0 24 24"><path d="M6 3h9l3 3v15H6z"/><path d="M9 10h6M9 14h6M9 18h3"/></symbol>
+  <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></symbol>
+  <symbol id="i-post" viewBox="0 0 24 24"><path d="M5 4h14v16H5z"/><path d="M8 8h8M8 12h8M8 16h5"/></symbol>
+  <symbol id="i-ext" viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9"/><path d="M18 14v6H4V6h6"/></symbol>
+  <symbol id="i-cart" viewBox="0 0 24 24"><path d="M3 4h2l2.4 11h10.2L20 8H8"/><circle cx="9" cy="19.5" r="1.4"/><circle cx="17" cy="19.5" r="1.4"/></symbol>
+</svg>
+
+<header class="top">
+  <div class="wrap bar">
+    <div class="brand">Склад Ezhi</div>
+    <input id="q" type="search" placeholder="Поиск: bmp280, tp4056 type-c, oled…" autocomplete="off">
+    <select id="topic" aria-label="Раздел"><option value="">Все разделы</option></select>
+    <select id="sort" aria-label="Сортировка">
+      <option value="rel">По смыслу</option>
+      <option value="asc">Дешевле</option>
+      <option value="desc">Дороже</option>
+    </select>
+    <button class="btn" id="view">Список</button>
+    <button class="btn primary cartbtn" id="openCart"><svg class="i"><use href="#i-cart"/></svg>Корзина <b id="cartCount">0</b></button>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="status" id="status">Загружаю каталог…</div>
+  <div class="grid" id="grid"></div>
+  <div class="more"><button class="btn" id="more" hidden>Показать ещё</button></div>
+</main>
+
+<div class="shade" id="shade" hidden></div>
+<aside id="cart" hidden aria-label="Корзина">
+  <div class="ch">
+    <select id="cartSel" aria-label="Выбрать корзину"></select>
+    <button class="ic" id="newCart" title="Новая корзина" aria-label="Новая корзина"><svg class="i"><use href="#i-plus"/></svg></button>
+    <button class="ic" id="renameCart" title="Переименовать" aria-label="Переименовать"><svg class="i"><use href="#i-edit"/></svg></button>
+    <button class="ic" id="closeCart" title="Свернуть" aria-label="Свернуть"><svg class="i"><use href="#i-down"/></svg></button>
+  </div>
+  <input id="cartName" hidden aria-label="Название корзины" placeholder="Название корзины">
+  <div class="lines" id="lines"></div>
+  <footer>
+    <div class="total"><span id="totalLbl">Итого</span><span id="total">0 с</span></div>
+    <textarea id="note" hidden placeholder="Заметка к корзине"></textarea>
+    <div class="acts">
+      <button class="ic" id="noteBtn" title="Заметка" aria-label="Заметка"><svg class="i"><use href="#i-note"/></svg></button>
+      <button class="ic" id="copyLink" title="Скопировать ссылку на корзину" aria-label="Ссылка на корзину"><svg class="i"><use href="#i-link"/></svg></button>
+      <button class="ic danger" id="delCart" title="Удалить корзину" aria-label="Удалить корзину"><svg class="i"><use href="#i-trash"/></svg></button>
+      <button class="btn primary" id="copyText">Скопировать список</button>
+    </div>
+    <div class="toast" id="toast"></div>
+    <textarea id="fallback" readonly hidden></textarea>
+  </footer>
+</aside>
+
+<dialog id="dlg"><div class="dlg" id="dlgBody"></div></dialog>
+
+<script src="ezhi.js"></script>
+<script>
+const $ = (s) => document.querySelector(s);
+const PAGE = 60;
+let cat = { items: [], topics: [], crawledAt: 0 }, byId = new Map(), results = [], shown = 0;
+let cart = null, carts = [], saveTimer = null, confirmDel = false;
+let refreshing = false, refreshMsg = "", refreshErr = "", pendingCat = null;
+
+const norm = (s) => (s || "").toLowerCase().replace(/ё/g, "е").replace(/[“”«»"~]/g, " ").replace(/\s+/g, " ");
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const img = (u) => u ? u.replace("_thumb.", ".") : "";                       // фото прямо с форума, полное
+const imgAttr = (u) => u ? `src="${esc(img(u))}" data-th="${esc(u)}"` : "";  // не открылось полное — превью
+const fmt = (n) => n.toLocaleString("ru-RU") + " с";
+const icon = (id) => `<svg class="i"><use href="#i-${id}"/></svg>`;
+const ls = { get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+             set(k, v) { try { localStorage.setItem(k, v); } catch {} } };
+
+/* ---------- каталог ---------- */
+const hoursAgo = (ms) => { const h = (Date.now() - ms) / 3600e3; return h < 1 ? `${Math.max(1, Math.round(h * 60))} мин назад` : h < 48 ? `${Math.round(h)} ч назад` : `${Math.round(h / 24)} дн назад`; };
+const fmtTime = (ms) => ms ? new Date(ms).toLocaleString("ru-RU", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : "—";
+
+function applyCatalog(c) {
+  cat = c; pendingCat = null;
+  byId = new Map();
+  for (const it of cat.items) {
+    it.topicTitle = cat.topics[it.t]?.title || "";
+    it.hn = norm(it.n);
+    it.hd = norm(it.d.join(" ") + " " + it.topicTitle);
+    it.left = it.p.filter((p) => !it.px.includes(p));
+    it.best = (it.left.length ? it.left : it.p)[0];
+    byId.set(it.id, it);
+  }
+  const sel = $("#topic"), cur = sel.value;
+  sel.length = 1;
+  cat.topics.forEach((t, i) => sel.add(new Option(t.title.split(/[,/]/)[0].trim(), i)));
+  sel.value = cur;
+  renderStatus();
+  search();
+  renderCart();
+}
+
+async function loadCatalog() {
+  const c = await EZ.loadCatalog();
+  if (c) applyCatalog(c);
+  else renderStatus();
+  if (EZ.isStale(c)) refresh();                 // старше 3 ч — в фоне качаем с форума, пока показываем этот
+}
+
+function renderStatus() {
+  const out = cat.items.filter((i) => i.o).length;
+  $("#status").innerHTML = (cat.items.length ? `<span>${cat.items.length.toLocaleString("ru-RU")} позиций</span>` : "")
+    + `<span title="${esc(fmtTime(cat.crawledAt))}">форум: ${cat.crawledAt ? fmtTime(cat.crawledAt) + ", " + hoursAgo(cat.crawledAt) : "ещё не качали"}</span>`
+    + `<span id="upd"></span>`
+    + `<label><input type="checkbox" id="showOut"${ls.get("ezhi.out") === "1" ? " checked" : ""}> показать отсутствующие <span id="outCnt">(${out})</span></label>`
+    + `<span id="found"></span>`;
+  $("#showOut").onchange = (e) => { ls.set("ezhi.out", e.target.checked ? "1" : "0"); search(); };
+  renderUpd();
+}
+
+function renderUpd() {                          // обновление с форума: идёт / готово / ошибка
+  const u = $("#upd");
+  if (!u) return;
+  if (refreshing) u.textContent = `обновляю с форума… ${refreshMsg}`;
+  else if (pendingCat) { u.innerHTML = `<button id="applyNew">каталог обновлён — показать</button>`; $("#applyNew").onclick = () => applyCatalog(pendingCat); }
+  else u.innerHTML = (refreshErr ? `<span style="color:var(--danger)">не обновилось: ${esc(refreshErr)}</span> ` : "") + `<button id="refresh">обновить</button>`;
+  const b = $("#refresh");
+  if (b) b.onclick = refresh;
+}
+
+async function refresh() {
+  if (refreshing) return;
+  refreshing = true; refreshErr = ""; refreshMsg = ""; renderUpd();
+  try {
+    const c = await EZ.refresh((n) => { refreshMsg = `страниц: ${n}`; renderUpd(); });
+    // пользователь ищет или листает — не дёргаем страницу, предлагаем показать новое
+    const quiet = !cat.items.length || (!$("#q").value && window.scrollY < 50 && !$("#dlg").open);
+    if (quiet) { refreshing = false; applyCatalog(c); return; }
+    pendingCat = c;
+  } catch (e) { refreshErr = e.message || String(e); }
+  refreshing = false; renderUpd();
+}
+
+function search() {
+  const words = norm($("#q").value).trim().split(" ").filter(Boolean);
+  const topic = $("#topic").value, sort = $("#sort").value;
+  const showOut = $("#showOut")?.checked;
+  results = [];
+  let inStock = 0, outMatched = 0;
+  for (const it of cat.items) {
+    if (topic !== "" && String(it.t) !== topic) continue;
+    let score = 0, ok = true;
+    for (const w of words) {
+      const inName = it.hn.includes(w);
+      if (!inName && !it.hd.includes(w)) { ok = false; break; }
+      score += inName ? 3 : 1;
+    }
+    if (!ok) continue;
+    if (it.o) { outMatched++; if (!showOut) continue; } else inStock++;
+    results.push([score - (it.o ? 100 : 0), it]);
+  }
+  if (sort === "asc") results.sort((a, b) => a[1].o - b[1].o || a[1].best - b[1].best);
+  else if (sort === "desc") results.sort((a, b) => a[1].o - b[1].o || b[1].best - a[1].best);
+  else results.sort((a, b) => b[0] - a[0]);
+  results = results.map((r) => r[1]);
+  shown = 0;
+  $("#grid").innerHTML = "";
+  if (window.scrollY > 0) window.scrollTo({ top: 0 });
+  const f = $("#found");
+  // счётчики — по текущему поиску и разделу: сколько в наличии и сколько из найденного отсутствует
+  if (f) f.textContent = words.length || topic ? `найдено в наличии: ${inStock}` : "";
+  const oc = $("#outCnt");
+  if (oc) oc.textContent = `(${outMatched})`;
+  if (!results.length) $("#grid").innerHTML = `<div class="empty">Ничего не нашлось. Попробуйте короче: «bmp», «oled», «18650».</div>`;
+  showMore();
+}
+
+function hl(text) {
+  let h = esc(text);
+  for (const w of norm($("#q").value).trim().split(" ").filter((w) => w.length > 1)) {
+    const re = new RegExp("(" + esc(w).replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/е/g, "[её]") + ")", "gi");
+    h = h.replace(re, "<mark>$1</mark>");
+  }
+  return h;
+}
+
+function nameHtml(it) {
+  // у варианта своя часть важнее: «Кольцо 24*1» сверху, группа мелко под ней
+  if (it.g && it.n.startsWith(it.g + " — ")) return `<span class="v">${hl(it.n.slice(it.g.length + 3))}</span><span class="g">${hl(it.g)}</span>`;
+  return hl(it.n);
+}
+
+function priceHtml(it) {
+  const alt = it.left.slice(1).map((p) => `<span class="alt"> / ${p}</span>`).join("");
+  const gone = it.px.filter((p) => it.left.length !== it.p.length || it.o).map((p) => ` <s>${p}</s>`).join("");
+  return fmt(it.best) + alt + (it.o ? "" : gone);
+}
+
+function ctlHtml(it) {
+  const q = cart?.items[it.id] || 0;
+  return q ? `<span class="qty" data-id="${it.id}"><button data-d="-1" aria-label="Меньше">−</button><span>${q}</span><button data-d="1" aria-label="Больше">+</button></span>`
+           : `<button class="add" data-add="${it.id}" title="В корзину" aria-label="В корзину">${icon("cartplus")}</button>`;
+}
+
+function stripHtml(it) {
+  if (it.im.length < 2) return "";
+  return `<div class="strip">${it.im.map((u, i) => `<img loading="lazy" ${imgAttr(u)} data-ph="${i}"${i === 0 ? ' class="on"' : ""} alt="">`).join("")}</div>`;
+}
+
+function cardHtml(it) {
+  return `
+    <article class="card${it.o ? " out" : ""}" data-id="${it.id}">
+      <div class="ph" data-open="${it.id}">${it.im[0] ? `<img loading="lazy" ${imgAttr(it.im[0])} alt="">` : ""}</div>
+      ${stripHtml(it)}
+      <div class="body">
+        ${it.o ? `<span class="oos">нет в наличии</span>` : ""}
+        <div class="name" data-open="${it.id}">${nameHtml(it)}</div>
+        ${it.xs.length ? `<div class="xs">нет: ${esc(it.xs.join(", "))}</div>` : ""}
+        ${it.d.length ? `<div class="det">${hl(it.d.join(" · "))}</div>` : ""}
+        <div class="row"><span class="price">${priceHtml(it)}</span><span class="ctl">${ctlHtml(it)}</span></div>
+      </div>
+    </article>`;
+}
+
+function showMore() {
+  const part = results.slice(shown, shown + PAGE);
+  $("#grid").insertAdjacentHTML("beforeend", part.map(cardHtml).join(""));
+  shown += part.length;
+  $("#more").hidden = shown >= results.length;
+}
+
+function refreshCardControls() {
+  document.querySelectorAll(".card").forEach((c) => {
+    const it = byId.get(c.dataset.id);
+    if (it) c.querySelector(".ctl").innerHTML = ctlHtml(it);
+  });
+}
+
+function openItem(id) {
+  const it = byId.get(id);
+  if (!it) return;
+  $("#dlgBody").innerHTML = `
+    ${it.o ? `<span class="oos">нет в наличии</span>` : ""}
+    <h2>${esc(it.n)}</h2>
+    ${it.im[0] ? `<img class="big" ${imgAttr(it.im[0])} alt="">` : ""}
+    ${stripHtml(it)}
+    <div class="row"><span class="price">${priceHtml(it)}</span><span class="ctl">${ctlHtml(it)}</span></div>
+    ${it.xs.length ? `<div class="xs">зачёркнуто у продавца: ${esc(it.xs.join(", "))}</div>` : ""}
+    ${it.d.length ? `<ul>${it.d.map((l) => `<li>${esc(l)}</li>`).join("")}</ul>` : ""}
+    <div class="acts"><span class="links"><a class="src" href="post.html#id=${it.id}">в посте${icon("ext")}</a>
+      <a class="src" href="${esc(it.u)}" target="_blank" rel="noopener">на форуме${icon("ext")}</a></span>
+      <button class="btn" id="dlgClose">Закрыть</button></div>`;
+  $("#dlg").dataset.id = id;
+  $("#dlg").showModal();
+  $("#dlgClose").onclick = () => $("#dlg").close();
+}
+
+/* ---------- корзины (localStorage; поделиться — ссылкой, корзина целиком в ней) ---------- */
+const cartCount = (c) => Object.values(c.items).reduce((a, b) => a + b, 0);
+function readCarts() { try { return JSON.parse(ls.get("ezhi.carts") || "[]"); } catch { return []; } }
+function writeCarts() { ls.set("ezhi.carts", JSON.stringify(carts)); }
+const newId = () => Math.random().toString(36).slice(2, 10);
+const sameItems = (a, b) => JSON.stringify(Object.entries(a).sort()) === JSON.stringify(Object.entries(b).sort());
+
+function loadCarts(preferId) {
+  carts = readCarts();
+  let id = preferId || ls.get("ezhi.cart");
+  const link = EZ.hashToCart(location.hash, cat.items.map((i) => i.id));
+  if (link) {                                   // открыли ссылку на корзину — сохраняем к себе (без дублей)
+    let c = carts.find((x) => x.name === link.name && sameItems(x.items, link.items));
+    if (!c) {
+      c = { id: newId(), name: link.name, note: link.note, items: link.items, snap: {} };
+      for (const iid of Object.keys(c.items)) { const it = byId.get(iid); if (it) c.snap[iid] = { n: it.n, p: it.best, im: it.im[0] || "" }; }
+      carts.push(c);
+      writeCarts();
+    }
+    id = c.id;
+    history.replaceState(null, "", location.pathname + location.search);
+  }
+  if (!carts.length) { carts.push({ id: newId(), name: "Моя корзина", note: "", items: {}, snap: {} }); writeCarts(); }
+  cart = carts.find((c) => c.id === id) || carts[0];
+  ls.set("ezhi.cart", cart.id);
+  renderCartSelect();
+  renderCart();
+  return !!link;
+}
+
+function renderCartSelect() {
+  $("#cartSel").innerHTML = carts.map((c) => `<option value="${c.id}">${esc(c.name || "Корзина")} (${cartCount(c)})</option>`).join("");
+  $("#cartSel").value = cart.id;
+}
+
+function setQty(id, q) {
+  if (!cart) return;
+  const it = byId.get(id);
+  if (q > 0) { cart.items[id] = q; if (it) (cart.snap ||= {})[id] = { n: it.n, p: it.best, im: it.im[0] || "" }; }
+  else delete cart.items[id];
+  renderCart(); refreshCardControls();
+  if ($("#dlg").open && $("#dlg").dataset.id === id && it) $("#dlg .ctl").innerHTML = ctlHtml(it);
+  queueSave();
+}
+
+function queueSave() {
+  writeCarts();
+  renderCartSelect();
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => toast("Сохранено"), 400);
+}
+
+function cartRows() {
+  return Object.entries(cart?.items || {}).map(([id, q]) => {
+    const it = byId.get(id), s = cart.snap?.[id] || {};
+    return { id, q, it, n: it ? it.n : s.n || id, p: it ? it.best : s.p || 0, im: it ? it.im[0] : s.im };
+  });
+}
+
+function renderCart() {
+  if (!cart) return;
+  const rows = cartRows();
+  const count = rows.reduce((a, r) => a + r.q, 0), total = rows.reduce((a, r) => a + r.q * r.p, 0);
+  $("#cartCount").textContent = count;
+  if (document.activeElement !== $("#cartName")) $("#cartName").value = cart.name || "";
+  if (document.activeElement !== $("#note")) $("#note").value = cart.note || "";
+  $("#lines").innerHTML = rows.length ? rows.map((r) => `
+    <div class="line">
+      ${r.im ? `<img ${imgAttr(r.im)} alt="" data-open="${r.id}">` : "<span></span>"}
+      <div class="nm" data-open="${r.id}">${esc(r.n)}${!r.it ? "<em>сейчас нет в каталоге</em>" : r.it.o ? "<em>нет в наличии</em>" : ""}</div>
+      <div class="rt"><span class="qty" data-id="${r.id}"><button data-d="-1" aria-label="Меньше">−</button><span>${r.q}</span><button data-d="1" aria-label="Больше">+</button></span>
+        <div class="rb">${r.it ? `<a class="src" href="post.html#id=${r.id}">в посте${icon("ext")}</a>` : ""}<span class="sum">${fmt(r.q * r.p)}</span></div></div>
+    </div>`).join("") : `<div class="empty">Пусто. Добавляйте кнопкой с корзиной на карточке.</div>`;
+  $("#totalLbl").textContent = `Итого, ${count} шт.`;
+  $("#total").textContent = fmt(total);
+  confirmDel = false; $("#delCart").classList.remove("armed");
+  $("#noteBtn").classList.toggle("has", !!cart.note);
+}
+
+function cartText() {
+  const rows = cartRows();
+  const lines = rows.map((r, i) => `${i + 1}. ${r.n} — ${r.q} шт. × ${r.p} = ${r.q * r.p} с`);
+  const total = rows.reduce((a, r) => a + r.q * r.p, 0);
+  return `Здравствуйте! Хочу взять:\n${lines.join("\n")}\nИтого: ${total} с` + (cart.note ? `\n\n${cart.note}` : "");
+}
+
+async function copy(text, okMsg) {
+  try { await navigator.clipboard.writeText(text); toast(okMsg); }
+  catch { const f = $("#fallback"); f.hidden = false; f.value = text; f.select(); toast("Выделил текст — скопируйте вручную"); }
+}
+
+function toast(m) { $("#toast").textContent = m; clearTimeout(toast.t); toast.t = setTimeout(() => ($("#toast").textContent = ""), 2500); }
+function openCart(v) { $("#cart").hidden = !v; $("#shade").hidden = !v; }
+function applyView(v) {
+  $("#grid").classList.toggle("list", v === "list");
+  $("#view").textContent = v === "list" ? "Плитка" : "Список";
+  ls.set("ezhi.view", v);
+}
+
+/* ---------- события ---------- */
+let qTimer;
+$("#q").addEventListener("input", () => { clearTimeout(qTimer); qTimer = setTimeout(search, 120); });
+$("#topic").onchange = search;
+$("#sort").onchange = search;
+$("#more").onclick = showMore;
+// дошли до конца списка — сразу подгружаем продолжение (кнопка остаётся запасным вариантом)
+if ("IntersectionObserver" in window) {
+  new IntersectionObserver((es) => { if (es.some((e) => e.isIntersecting) && shown < results.length) showMore(); },
+    { rootMargin: "600px 0px" }).observe($("#more").parentElement);
+}
+$("#view").onclick = () => applyView($("#grid").classList.contains("list") ? "grid" : "list");
+$("#openCart").onclick = () => openCart(true);
+$("#closeCart").onclick = () => openCart(false);
+$("#shade").onclick = () => openCart(false);
+document.addEventListener("keydown", (e) => {
+  if (e.key === "/" && !["INPUT", "TEXTAREA"].includes(document.activeElement.tagName)) { e.preventDefault(); $("#q").focus(); }
+  if (e.key === "Escape" && !$("#cart").hidden) openCart(false);
+});
+document.addEventListener("click", (e) => {
+  if (e.target.closest("a")) return;          // ссылки работают как обычно
+  const add = e.target.closest("[data-add]");
+  if (add) return setQty(add.dataset.add, 1);
+  const step = e.target.closest(".qty button");
+  if (step) { const id = step.closest(".qty").dataset.id; return setQty(id, (cart.items[id] || 0) + Number(step.dataset.d)); }
+  const ph = e.target.closest(".strip img");
+  if (ph) {                                   // миниатюра пачки → большое фото
+    const box = ph.closest(".card, .dlg");
+    const main = box.querySelector(".ph img, img.big");
+    if (main) main.src = ph.src;
+    box.querySelectorAll(".strip img").forEach((x) => x.classList.toggle("on", x === ph));
+    return;
+  }
+  const op = e.target.closest("[data-open]");
+  if (op) return openItem(op.dataset.open);
+});
+$("#cartSel").onchange = (e) => { cart = carts.find((c) => c.id === e.target.value) || carts[0]; ls.set("ezhi.cart", cart.id); renderCart(); refreshCardControls(); };
+$("#newCart").onclick = () => { const c = { id: newId(), name: "Новая корзина", note: "", items: {}, snap: {} }; carts.push(c); writeCarts(); loadCarts(c.id); refreshCardControls(); $("#cartName").hidden = false; $("#cartName").focus(); $("#cartName").select(); };
+$("#renameCart").onclick = () => { const n = $("#cartName"); n.hidden = !n.hidden; if (!n.hidden) { n.focus(); n.select(); } };
+$("#cartName").oninput = (e) => { cart.name = e.target.value; queueSave(); };
+$("#cartName").onkeydown = (e) => { if (e.key === "Enter") e.target.hidden = true; };
+$("#noteBtn").onclick = () => { const n = $("#note"); n.hidden = !n.hidden; if (!n.hidden) n.focus(); };
+$("#note").oninput = (e) => { cart.note = e.target.value; queueSave(); };
+$("#copyText").onclick = () => copy(cartText(), "Список скопирован");
+$("#copyLink").onclick = () => copy(location.origin + location.pathname + "#" + EZ.cartToHash(cart, cat.items.map((i) => i.id)), "Ссылка скопирована: по ней корзина откроется в любом браузере");
+$("#delCart").onclick = () => {
+  if (!confirmDel) { confirmDel = true; $("#delCart").classList.add("armed"); toast("Нажмите ещё раз, чтобы удалить корзину"); return; }
+  carts = carts.filter((c) => c.id !== cart.id); writeCarts();
+  ls.set("ezhi.cart", "");
+  loadCarts(); refreshCardControls(); toast("Корзина удалена");
+};
+window.addEventListener("hashchange", () => { if (loadCarts()) { refreshCardControls(); openCart(true); } });
+// полное фото не открылось — показать превью с форума
+document.addEventListener("error", (e) => {
+  const t = e.target;
+  if (t.tagName === "IMG" && t.dataset.th && t.getAttribute("src") !== t.dataset.th) t.src = t.dataset.th;
+}, true);
+
+applyView(ls.get("ezhi.view") || "grid");
+{ const q0 = new URLSearchParams(location.search).get("q"); if (q0) $("#q").value = q0; }   // ?q=… — ссылка на поиск
+(async () => {
+  const fromLink = location.hash.includes("c=");
+  try { await loadCatalog(); }
+  catch (e) { $("#status").textContent = "Не удалось загрузить каталог: " + e.message; }
+  loadCarts();
+  refreshCardControls();
+  if (fromLink) openCart(true);
+})();
+</script>
+</body>
+</html>
