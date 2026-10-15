@@ -481,11 +481,10 @@ function renderCart() {
   $("#noteBtn").classList.toggle("has", !!cart.note);
 }
 
+// для продавца: товары и сколько штук (цена — для сверки). Без приветствия, итога и заметки:
+// итог врёт, если в корзине варианты «или-или», а заметка — своя, ему не нужна
 function cartText() {
-  const rows = cartRows();
-  const lines = rows.map((r, i) => `${i + 1}. ${r.n} — ${r.q} шт. × ${r.p} = ${r.q * r.p} с`);
-  const total = rows.reduce((a, r) => a + r.q * r.p, 0);
-  return `Здравствуйте! Хочу взять:\n${lines.join("\n")}\nИтого: ${total} с` + (cart.note ? `\n\n${cart.note}` : "");
+  return cartRows().map((r, i) => `${i + 1}. ${r.n} — ${r.q} шт.` + (r.p ? (r.q > 1 ? `, по ${r.p} с` : `, ${r.p} с`) : "")).join("\n");
 }
 
 async function copy(text, okMsg) {
@@ -545,7 +544,8 @@ $("#cartName").onkeydown = (e) => { if (e.key === "Enter") e.target.hidden = tru
 $("#noteBtn").onclick = () => { const n = $("#note"); n.hidden = !n.hidden; if (!n.hidden) n.focus(); };
 $("#note").oninput = (e) => { cart.note = e.target.value; queueSave(); };
 $("#copyText").onclick = () => copy(cartText(), "Список скопирован");
-$("#copyLink").onclick = () => copy(location.origin + location.pathname + "#" + EZ.cartToHash(cart, cat.items.map((i) => i.id)), "Ссылка скопирована: по ней корзина откроется в любом браузере");
+// заметка в ссылку не идёт — она своя
+$("#copyLink").onclick = () => copy(location.origin + location.pathname + "#" + EZ.cartToHash({ ...cart, note: "" }, cat.items.map((i) => i.id)), "Ссылка скопирована: по ней корзина откроется в любом браузере");
 $("#delCart").onclick = () => {
   if (!confirmDel) { confirmDel = true; $("#delCart").classList.add("armed"); toast("Нажмите ещё раз, чтобы удалить корзину"); return; }
   carts = carts.filter((c) => c.id !== cart.id); writeCarts();
