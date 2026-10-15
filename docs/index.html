@@ -106,7 +106,6 @@ aside { position: fixed; z-index: 20; top: 0; right: 0; bottom: 0; width: min(42
 .src { display: inline-flex; align-items: center; gap: 2px; font-size: 11px; color: var(--accent); text-decoration: none; white-space: nowrap; }
 .src svg.i { width: 12px; height: 12px; }
 .line .rt { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
-.line .rb { display: flex; align-items: baseline; gap: 8px; }
 .line .sum { font: 500 12px var(--mono); color: var(--price); font-variant-numeric: tabular-nums; }
 aside footer { border-top: 1px solid var(--line); padding: 6px 10px calc(6px + env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; gap: 5px; }
 .total { display: flex; justify-content: space-between; align-items: baseline; font-weight: 600; }
@@ -474,7 +473,7 @@ function renderCart() {
       ${r.im ? `<img ${imgAttr(r.im)} alt="" data-open="${r.id}">` : "<span></span>"}
       <div class="nm" data-open="${r.id}">${esc(r.n)}${!r.it ? "<em>сейчас нет в каталоге</em>" : r.it.o ? "<em>нет в наличии</em>" : ""}</div>
       <div class="rt"><span class="qty" data-id="${r.id}"><button data-d="-1" aria-label="Меньше">−</button><span>${r.q}</span><button data-d="1" aria-label="Больше">+</button></span>
-        <div class="rb">${r.it ? `<a class="src" href="post.html#id=${r.id}">в посте${icon("ext")}</a>` : ""}<span class="sum">${fmt(r.q * r.p)}</span></div></div>
+        <span class="sum">${fmt(r.q * r.p)}</span></div>
     </div>`).join("") : `<div class="empty">Пусто. Добавляйте кнопкой с корзиной на карточке.</div>`;
   $("#totalLbl").textContent = `Итого, ${count} шт.`;
   $("#total").textContent = fmt(total);
